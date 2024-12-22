@@ -1,0 +1,30 @@
+{
+    "operation": "create",
+    "payload": {
+        "TableName": "ddb-testing",
+        "Item": {
+            "id": 12,
+            "name": "Robert K",
+            "email": "robert@example.com",
+            "company": "KPMG",
+            "favoritePlayer": "Ronaldo",
+            "bikeOwned": "Kawasaki Ninja",
+            "hobbies": {
+                "h1": "reading",
+                "h2": "cycling",
+                "h3": "writing"
+            }
+        }
+    }
+}
+
+
+{
+    "operation": "read",
+    "payload": {
+        "TableName": "ddb-testing",
+        "Key": {
+            "id": 10
+        }
+    }
+}

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DynamoDB Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-8">DynamoDB Management</h1>
+
+        <!-- Debug Info Section -->
+        <div id="debugInfo" class="bg-black text-white p-4 mb-8 rounded overflow-auto max-h-40">
+            <h3 class="font-bold mb-2">Debug Info:</h3>
+            <pre id="debugOutput"></pre>
+        </div>
+
+        <!-- Input Form Section -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-8">
+            <h2 class="text-xl font-semibold mb-4">Add/Update Item</h2>
+
+            <!-- Required Fields -->
+            <div class="mb-4 grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">ID (Required)</label>
+                    <input type="number" id="idField" class="mt-1 block w-full border p-2 rounded" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Name</label>
+                    <input type="text" id="nameField" class="mt-1 block w-full border p-2 rounded">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="emailField" class="mt-1 block w-full border p-2 rounded">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Company</label>
+                    <input type="text" id="companyField" class="mt-1 block w-full border p-2 rounded">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Favorite Player</label>
+                    <input type="text" id="playerField" class="mt-1 block w-full border p-2 rounded">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Bike Owned</label>
+                    <input type="text" id="bikeField" class="mt-1 block w-full border p-2 rounded">
+                </div>
+            </div>
+
+            <!-- Hobbies Section -->
+            <div class="mb-4">
+                <h3 class="text-lg font-medium mb-2">Hobbies</h3>
+                <div id="hobbiesFields">
+                    <div class="grid grid-cols-2 gap-4 mb-2">
+                        <input type="text" placeholder="h1" class="hobby-key border p-2 rounded">
+                        <input type="text" placeholder="Hobby value" class="hobby-value border p-2 rounded">
+                    </div>
+                </div>
+                <button onclick="addHobbyField()" class="bg-blue-500 text-white px-4 py-2 rounded mt-2">
+                    Add More Hobbies
+                </button>
+            </div>
+
+            <!-- Submit Buttons -->
+            <div class="flex gap-4">
+                <button onclick="handleOperation('create')" class="bg-green-500 text-white px-6 py-2 rounded">
+                    POST (Create New)
+                </button>
+                <button onclick="handleOperation('update')" class="bg-yellow-500 text-white px-6 py-2 rounded">
+                    PUT (Update)
+                </button>
+            </div>
+        </div>
+
+        <!-- View Items Section -->
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold">View Items</h2>
+                <button onclick="listItems()" class="bg-blue-500 text-white px-4 py-2 rounded">
+                    Refresh List
+                </button>
+            </div>
+            <div id="itemsList" class="overflow-x-auto">
+                <!-- Items will be displayed here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://r98gs6s6g4.execute-api.us-east-1.amazonaws.com/FS/id';
+
+        // Debug logging function
+        function logDebug(message, data = null) {
+            const debugOutput = document.getElementById('debugOutput');
+            const timestamp = new Date().toISOString();
+            const logMessage = `${timestamp}: ${message}\n${data ? JSON.stringify(data, null, 2) + '\n' : ''}`;
+            debugOutput.textContent = logMessage + debugOutput.textContent;
+            console.log(message, data);
+        }
+
+        function addHobbyField() {
+            const hobbiesContainer = document.getElementById('hobbiesFields');
+            const newHobbyDiv = document.createElement('div');
+            newHobbyDiv.className = 'grid grid-cols-2 gap-4 mb-2';
+            newHobbyDiv.innerHTML = `
+                <input type="text" placeholder="h1" class="hobby-key border p-2 rounded">
+                <input type="text" placeholder="Hobby value" class="hobby-value border p-2 rounded">
+            `;
+            hobbiesContainer.appendChild(newHobbyDiv);
+        }
+
+        function gatherFormData() {
+            const id = document.getElementById('idField').value;
+            if (!id) throw new Error('ID is required');
+
+            const hobbies = {};
+            document.querySelectorAll('#hobbiesFields > div').forEach(div => {
+                const key = div.querySelector('.hobby-key').value;
+                const value = div.querySelector('.hobby-value').value;
+                if (key && value) {
+                    hobbies[key] = value;
+                }
+            });
+
+            return {
+                id: Number(id),
+                name: document.getElementById('nameField').value,
+                email: document.getElementById('emailField').value,
+                company: document.getElementById('companyField').value,
+                favoritePlayer: document.getElementById('playerField').value,
+                bikeOwned: document.getElementById('bikeField').value,
+                hobbies: hobbies
+            };
+        }
+
+        async function handleOperation(operation) {
+            try {
+                const item = gatherFormData();
+                logDebug(`Performing ${operation} operation with data:`, item);
+
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        operation: operation,
+                        payload: {
+                            TableName: "ddb-testing",
+                            Item: item
+                        }
+                    })
+                });
+
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const result = await response.json();
+                logDebug('Operation result:', result);
+
+                alert(`${operation === 'create' ? 'Created' : 'Updated'} successfully!`);
+                listItems(); // Refresh the list
+            } catch (error) {
+                logDebug('Error in handleOperation:', error);
+                alert(error.message);
+            }
+        }
+
+        async function listItems() {
+            logDebug('Starting listItems function');
+            try {
+                logDebug('Making API request to:', API_URL);
+
+                const requestBody = {
+                    operation: 'list',
+                    payload: {
+                        TableName: "ddb-testing"
+                    }
+                };
+
+                logDebug('Request body:', requestBody);
+
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                logDebug('Response status:', response.status);
+                logDebug('Response headers:', Object.fromEntries(response.headers.entries()));
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    logDebug('Error response body:', errorText);
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const responseData = await response.json();
+                logDebug('Received data:', responseData);
+
+                // Parse the nested body string into an object
+                const parsedBody = JSON.parse(responseData.body);
+
+                // Extract Items from the parsed body
+                const items = parsedBody.Items || [];
+                logDebug('Parsed items:', items);
+
+                displayItems(items);
+                logDebug('Display complete');
+
+            } catch (error) {
+                logDebug('Error in listItems:', {
+                    message: error.message,
+                    stack: error.stack
+                });
+                alert('Failed to fetch items: ' + error.message);
+            }
+        }
+
+        function displayItems(items) {
+            const container = document.getElementById('itemsList');
+
+            logDebug('Displaying items:', items);
+
+            if (!items || items.length === 0) {
+                container.innerHTML = '<p class="text-gray-500">No items found</p>';
+                return;
+            }
+
+            // Create table headers
+            const allFields = new Set(['id', 'name', 'email', 'company', 'favoritePlayer', 'bikeOwned', 'hobbies']);
+
+            let html = `
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead>
+                        <tr>
+                            ${Array.from(allFields).map(field =>
+                `<th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    ${field}
+                                </th>`
+            ).join('')}
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+            `;
+
+            items.forEach(item => {
+                html += '<tr>';
+                allFields.forEach(field => {
+                    let value = item[field];
+                    let displayValue = '';
+
+                    if (value === undefined) {
+                        displayValue = '';
+                    } else if (typeof value === 'object') {
+                        displayValue = JSON.stringify(value, null, 2);
+                    } else {
+                        displayValue = value;
+                    }
+
+                    html += `<td class="px-6 py-4 whitespace-pre text-sm text-gray-900">
+                        ${displayValue}
+                    </td>`;
+                });
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        // Initial load
+        document.addEventListener('DOMContentLoaded', () => {
+            logDebug('Page loaded, initiating first data fetch');
+            listItems();
+        });
+    </script>
+</body>
+
+</html>
